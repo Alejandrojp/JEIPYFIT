@@ -74,7 +74,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Subtle grid background */
 body::before {
   content: '';
   position: fixed;
@@ -114,19 +113,13 @@ body::before {
 
 .logo-wrap { display: flex; align-items: center; gap: 10px; }
 
-.logo-mark {
+.logo-img {
   width: 34px;
   height: 34px;
-  background: var(--lime);
   border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-head);
-  font-weight: 900;
-  font-size: 18px;
-  color: #000;
+  object-fit: cover;
   flex-shrink: 0;
+  border: 1px solid var(--brd2);
 }
 
 .logo-text {
@@ -491,7 +484,7 @@ input[type=range]::-webkit-slider-thumb {
   transition: all 0.18s;
   user-select: none;
 }
-.dd .dn { font-size: 7.5px; color: var(--t4); letter-spacing: 1px; text-transform: uppercase; }
+.dd .dn { font-size: 7.5px; color: var(--t4); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
 .dd .da { font-size: 12px; font-weight: 800; color: var(--t3); margin-top: 4px; }
 .dd.on { background: var(--limebg); border-color: var(--limeborder); }
 .dd.on .da { color: var(--lime); }
@@ -588,7 +581,6 @@ input[type=range]::-webkit-slider-thumb {
 .md-unit { font-size: 9px; color: var(--lime); font-family: var(--font-mono); font-weight: 500; }
 .md-lbl { font-size: 9px; color: var(--t4); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px; }
 
-/* NUEVAS CLASES PARA EL RENDER PLAN NUTRITIONAL (.mbar) */
 .mbar {
   display: flex;
   background: var(--s2);
@@ -678,13 +670,12 @@ input[type=range]::-webkit-slider-thumb {
 .scard h3 { font-family: var(--font-head); font-size: 15px; font-weight: 800; color: var(--lime); margin-bottom: 8px; }
 .scard p { font-size: 13px; color: var(--t2); line-height: 1.75; }
 
-/* NUEVAS CLASES PARA LAS ESTADÍSTICAS DE ANÁLISIS (.analysis-stats) */
 .analysis-stats { display: flex; gap: 10px; margin-top: 14px; }
 .as-item { flex: 1; background: var(--s3); border: 1px solid var(--brd); border-radius: 10px; padding: 12px; text-align: center; }
 .as-k { display: block; font-size: 9px; color: var(--t3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
 .as-v { font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: var(--t1); }
 
-/* ── AI CHAT Y WIZARD CONVERSACIONAL ── */
+/* ── AI CHAT Y WIZARD ── */
 .ai-suggestions {
   display: flex;
   flex-wrap: wrap;
@@ -719,7 +710,6 @@ input[type=range]::-webkit-slider-thumb {
   scroll-behavior: smooth;
 }
 
-/* MODIFICADOR PARA WIZARD WINDOW */
 .wizard-window {
   min-height: 250px;
   max-height: 350px;
@@ -918,7 +908,6 @@ input[type=range]::-webkit-slider-thumb {
 
 .weight-svg { width: 100%; height: 130px; overflow: visible; }
 
-/* NUEVAS CLASES PARA EL MACRO CHART DONUT */
 .macro-chart-inner {
   display: flex;
   align-items: center;

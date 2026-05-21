@@ -18,7 +18,7 @@
 
   <header class="hdr" id="hdr">
     <div class="logo-wrap">
-      <div class="logo-mark">J</div>
+      <img src="image_8eb90a.png" alt="JEIPYFIT IA Logo" class="logo-img">
       <div class="logo-text">JEIPY<em>FIT IA</em></div>
     </div>
     <nav class="nav" id="nav" style="display:none">
@@ -231,7 +231,7 @@
     <div class="fg"><label>Alimentos que te gustan</label>
       <textarea id="gusta" placeholder="Ej: pollo, arroz, pasta, aguacate, huevos, atún, fruta..."></textarea>
     </div>
-    <div class="fg"><label>Alimentos que NO te gustan / alergias</label>
+    <div class="fg"><label>Alimentos que NO te gustan / allergies</label>
       <textarea id="nogusta" placeholder="Ej: no me gusta el pescado, alérgico a frutos secos..."></textarea>
     </div>
     <div class="g2">
@@ -498,6 +498,22 @@
       <div class="brow" style="margin-top:12px">
         <button class="btn-ghost btn-xs" onclick="closeMeasureModal()">Cancelar</button>
         <button class="btn-primary btn-xs" onclick="saveMeasure()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="weeklyReviewModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeWeeklyReview()">✕</button>
+      <h2>REVISIÓN <span>SEMANAL</span> 🏆</h2>
+      <p class="modal-sub">¡Enhorabuena! Has completado todas tus sesiones planificadas. ¿Añadimos cambios u observaciones para la siguiente semana?</p>
+      <div class="fg">
+        <label>Observaciones, Fatiga o Ajustes desados</label>
+        <textarea id="weeklyFeedback" placeholder="Ej: Las piernas van muy fatigadas, reduce volumen ahí. En la nutrición añade opciones de snacks rápidos..."></textarea>
+      </div>
+      <div class="brow" style="margin-top:16px">
+        <button class="btn-ghost" onclick="closeWeeklyReview()">Mantener plan actual</button>
+        <button class="btn-primary" onclick="adjustPlanWithAI()">Optimizar Plan con IA ✨</button>
       </div>
     </div>
   </div>

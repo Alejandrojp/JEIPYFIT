@@ -14,9 +14,7 @@ const A = {
   chatHistory: [],
   photos: [],
   chartRange: 7,
-  // Onboarding wizard state
   wizard: { active: false, step: 0, answers: {}, msgs: [], loading: false },
-  // Settings
   settings: { unit: 'kg', reminders: false, remTime: '08:00' }
 };
 
@@ -111,7 +109,7 @@ function V(f, t) {
 const v = id => (document.getElementById(id)||{}).value || '';
 
 // ══════════════════════════════════════════════════════════════
-// ── WIZARD CONVERSACIONAL IA (Onboarding Mixto) ──
+// ── WIZARD CONVERSACIONAL IA ──
 // ══════════════════════════════════════════════════════════════
 
 const WIZARD_QUESTIONS = [
@@ -138,21 +136,11 @@ const WIZARD_QUESTIONS = [
 ];
 
 function startWizard() {
-  // Recopilar datos del formulario primero
   A.user = buildUserObj();
   if (!A.user) return;
-
-  A.wizard = {
-    active: true,
-    step: 0,
-    answers: {},
-    msgs: [],
-    loading: false
-  };
-
+  A.wizard = { active: true, step: 0, answers: {}, msgs: [], loading: false };
   go(6);
   renderWizard();
-  // Lanzar primera pregunta IA
   setTimeout(() => wizardAsk(0), 400);
 }
 
@@ -184,7 +172,6 @@ function renderWizard() {
     </div>`).join('');
   cw.scrollTop = cw.scrollHeight;
 
-  // Actualizar progress del wizard
   const pct = Math.round((A.wizard.step / WIZARD_QUESTIONS.length) * 100);
   const progressEl = document.getElementById('wizardProgress');
   if (progressEl) progressEl.style.width = pct + '%';
@@ -202,8 +189,6 @@ function wizardAsk(stepIdx) {
   const msg = q.ask(A.user);
   A.wizard.msgs.push({ role: 'ai', content: msg });
   renderWizard();
-
-  // Mostrar opciones rápidas si las hay
   renderWizardOptions(stepIdx);
 }
 
@@ -242,19 +227,15 @@ async function wizardProcessAnswer(text) {
   const step = A.wizard.step;
   if (step >= WIZARD_QUESTIONS.length) return;
 
-  // Guardar respuesta
   A.wizard.answers[WIZARD_QUESTIONS[step].key] = text;
   A.wizard.msgs.push({ role: 'user', content: text });
   A.wizard.step++;
   A.wizard.loading = true;
 
-  // Limpiar opciones
   const optsEl = document.getElementById('wizardQuickOpts');
   if (optsEl) optsEl.innerHTML = '';
 
   renderWizard();
-
-  // Pequeña pausa natural
   await new Promise(r => setTimeout(r, 600));
   A.wizard.loading = false;
 
@@ -268,11 +249,10 @@ async function wizardProcessAnswer(text) {
 async function wizardFinish() {
   A.wizard.msgs.push({
     role: 'ai',
-    content: `¡Perfecto! Tengo todo lo que necesito. 🚀\n\nAhora voy a generar tu plan **100% personalizado** con toda esta información. ¡Esto va a ser diferente a todo lo que hayas probado antes!`
+    content: `¡Perfecto! Tengo todo lo que necesito. 🚀\n\nAhora voy a generar tu plan **100% personalizado** con toda esta información.`
   });
   renderWizard();
 
-  // Deshabilitar input
   const inp = document.getElementById('wizardInput');
   if (inp) inp.disabled = true;
   const btn = document.getElementById('wizardSendBtn');
@@ -280,17 +260,12 @@ async function wizardFinish() {
   const optsEl = document.getElementById('wizardQuickOpts');
   if (optsEl) optsEl.innerHTML = '';
 
-  // Enriquecer datos del usuario con respuestas del wizard
   A.user = { ...A.user, ...A.wizard.answers };
-
   await new Promise(r => setTimeout(r, 1200));
-  await GEN(true); // true = ya tenemos A.user listo
+  await GEN(true);
 }
 
-// ══════════════════════════════════════════════════════════════
 // ── GROQ API ──
-// ══════════════════════════════════════════════════════════════
-
 async function callGroq(apiKey, prompt, maxTokens = 3800, maxRetries = 2) {
   let attempt = 0;
   while (attempt <= maxRetries) {
@@ -317,11 +292,7 @@ async function callGroq(apiKey, prompt, maxTokens = 3800, maxRetries = 2) {
       }
       return (await r.json()).choices[0].message.content.trim();
     } catch (error) {
-      if (attempt === maxRetries) throw new Error(
-        error.message === 'RATE_LIMIT' ? 'Servidores saturados. Espera unos minutos.' :
-        error.message === 'invalid_api_key' ? 'API Key inválida. Reconfigura en Ajustes.' :
-        error.message
-      );
+      if (attempt === maxRetries) throw new Error(error.message);
       attempt++;
       await new Promise(r => setTimeout(r, 800 * Math.pow(2, attempt)));
     }
@@ -335,7 +306,6 @@ async function GEN(fromWizard = false) {
 
   if (!fromWizard) {
     if (!A.dieta || !v('comidas')) { if(e) { e.style.display='block'; } return; }
-    // En flujo mixto, lanzar wizard en lugar de generar directo
     startWizard();
     return;
   }
@@ -375,15 +345,13 @@ async function GEN(fromWizard = false) {
     go(fromWizard ? 6 : 3);
     console.error(err);
     showToast('Error: ' + err.message, 'error');
-    if (err.message.includes('inválida')) localStorage.removeItem('jeipyfit_groq_key');
+    if (err.message && err.message.includes('inválida')) localStorage.removeItem('jeipyfit_groq_key');
   }
 }
 
-// ── PROMPT BUILDER (token-efficient) ──
 function buildP(u) {
   const n = u.dias.split(',').filter(d=>d.trim()).length;
   const adv = u.exp?.includes('+3') || u.exp?.toLowerCase().includes('avanzado') || u.dur?.includes('+90');
-  // Contexto extra del wizard
   const wizardCtx = [
     u.rutina_previa ? `Rutina previa: ${u.rutina_previa}` : '',
     u.horario_entreno ? `Horario: ${u.horario_entreno}` : '',
@@ -411,10 +379,7 @@ function animLS() {
   });
 }
 
-// ══════════════════════════════════════════════════════════════
 // ── RENDER PLAN ──
-// ══════════════════════════════════════════════════════════════
-
 function renderPlan() {
   const p = A.plan, u = A.user;
   if (!p || !u) return;
@@ -428,7 +393,6 @@ function renderPlan() {
 
   const FI = { 'Desayuno':'🌅','Almuerzo':'☀️','Merienda':'🍎','Cena':'🌙','Pre-entreno':'⚡','Post-entreno':'💪' };
 
-  // NUTRICIÓN
   let nh = `<div class="mbar">
     <div class="mv"><div class="v">${p.res.cal}</div><div class="l">Calorías</div></div>
     <div class="mdiv"></div>
@@ -456,7 +420,6 @@ function renderPlan() {
   });
   document.getElementById('tp-nut').innerHTML = nh;
 
-  // EJERCICIO
   let eh = '';
   p.ej.forEach(day => {
     eh += `<div class="pcard"><div class="pcard-hdr">
@@ -484,7 +447,6 @@ function renderPlan() {
   });
   document.getElementById('tp-ej').innerHTML = eh;
 
-  // ANÁLISIS
   let ah = `<div class="scard"><h3>📊 Análisis completo</h3><p>${p.res.obj}</p>`;
   if (p.res.tdee) ah += `<div class="analysis-stats">
     <div class="as-item"><span class="as-k">TDEE</span><span class="as-v">${p.res.tdee} kcal</span></div>
@@ -502,10 +464,7 @@ function PT(n, i) {
   document.getElementById('tp-'+n)?.classList.add('on');
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── DASHBOARD DE PROGRESO (Enterprise) ──
-// ══════════════════════════════════════════════════════════════
-
+// ── DASHBOARD DE PROGRESO ──
 function renderProg() {
   const ws = A.weights, wl = A.weekLog, td = A.days;
   const done = Object.values(wl).filter(v=>v==='done').length;
@@ -517,7 +476,6 @@ function renderProg() {
   const totalSessions = A.sessions;
   const unit = A.settings?.unit || 'kg';
 
-  // ── KPI CARDS ──
   document.getElementById('progCards').innerHTML = `
     <div class="prc">
       <div class="prc-label">⚖️ Peso ${unit==='lbs'?'(lbs)':'(kg)'}</div>
@@ -538,7 +496,6 @@ function renderProg() {
       <div class="prc-delta ${pct>=80?'pos':pct>=40?'neu':'neg'}">${pct}% completado</div>
     </div>`;
 
-  // ── GOAL BAR ──
   const gb = document.getElementById('goalBar');
   if (gb) {
     gb.style.display = 'block';
@@ -554,7 +511,6 @@ function renderProg() {
       </div>` : ''}`;
   }
 
-  // ── WEEK CHECK ──
   const DAYS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
   document.getElementById('wcheck').innerHTML = DAYS.map(d => {
     const isTr = A.days.includes(d), st = wl[d] || '';
@@ -568,13 +524,8 @@ function renderProg() {
     </div>`;
   }).join('');
 
-  // ── GRÁFICA PESO (SVG REAL) ──
   renderWeightChart();
-
-  // ── MACROS PIE CHART ──
   renderMacroChart();
-
-  // ── MEDIDAS ──
   renderMeasureCards();
 }
 
@@ -611,29 +562,24 @@ function renderWeightChart() {
     return { x, y, w };
   });
 
-  // Area path
   let area = `M ${pts[0].x} ${H - pad.b} `;
   area += pts.map(p => `L ${p.x} ${p.y}`).join(' ');
   area += ` L ${pts[pts.length-1].x} ${H - pad.b} Z`;
 
-  // Line path
   let line = `M ${pts[0].x} ${pts[0].y} `;
   line += pts.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
 
-  // Y-axis labels
   const yLabels = [mn, mn + range/2, mx].map((val, i) => {
     const y = pad.t + iH - (i/2)*iH;
     const disp = unit === 'lbs' ? (val*2.205).toFixed(1) : val.toFixed(1);
     return `<text x="${pad.l - 4}" y="${y + 4}" text-anchor="end" fill="var(--t4)" font-size="9" font-family="var(--font-mono)">${disp}</text>`;
   }).join('');
 
-  // X-axis labels (every nth)
   const step = Math.ceil(filtered.length / 5);
   const xLabels = pts.filter((_,i) => i % step === 0 || i === pts.length-1).map(p => {
     return `<text x="${p.x}" y="${H - 4}" text-anchor="middle" fill="var(--t4)" font-size="9" font-family="var(--font-mono)">${p.w.date}</text>`;
   }).join('');
 
-  // Trend line
   let trendLine = '';
   if (pts.length >= 3) {
     const n = pts.length;
@@ -679,7 +625,6 @@ function renderMacroChart() {
   const carP = Math.round((carK/total)*100);
   const graP = 100 - proP - carP;
 
-  // SVG donut chart
   const cx = 60, cy = 60, r = 45, stroke = 12;
   const circ = 2 * Math.PI * r;
   const segs = [
@@ -717,7 +662,6 @@ function renderMacroChart() {
   </div>`;
 }
 
-// ── MEDIDAS CORPORALES ──
 function renderMeasureCards() {
   const keys = ['cintura','pecho','cadera','brazo'];
   keys.forEach(k => {
@@ -749,7 +693,7 @@ function saveMeasure() {
 }
 function closeMeasureModal() { document.getElementById('measureModal').classList.remove('on'); }
 
-// ── WEEK CHECK ──
+// ── WEEK CHECK (Actualizado para captura de revisión) ──
 function CK(day) {
   const cur = A.weekLog[day] || '';
   if (cur === '') {
@@ -761,6 +705,7 @@ function CK(day) {
       detail:{ sesion:dp?.ts||'—', ejercicios:exList.length+' ejercicios' }, exList
     });
     showToast(`💪 ¡${day} completado!`, 'success');
+    checkWeeklyCompletion();
   } else if (cur === 'done') {
     A.weekLog[day] = 'skip'; A.sessions = Math.max(0, A.sessions-1);
     addHist({ type:'sal', title:`Sesión saltada — ${day}`, body:`Marcado como saltado`, detail:{} });
@@ -768,6 +713,78 @@ function CK(day) {
     delete A.weekLog[day];
   }
   saveState(); renderProg();
+}
+
+function checkWeeklyCompletion() {
+  if (!A.days || A.days.length === 0) return;
+  const allDone = A.days.every(d => A.weekLog[d] === 'done');
+  if (allDone) {
+    setTimeout(() => {
+      const modal = document.getElementById('weeklyReviewModal');
+      if (modal) {
+        modal.classList.add('on');
+        const fb = document.getElementById('weeklyFeedback');
+        if (fb) fb.value = '';
+      }
+    }, 800);
+  }
+}
+
+function closeWeeklyReview() {
+  const modal = document.getElementById('weeklyReviewModal');
+  if (modal) modal.classList.remove('on');
+  A.weekLog = {};
+  saveState();
+  renderProg();
+}
+
+async function adjustPlanWithAI() {
+  const fbEl = document.getElementById('weeklyFeedback');
+  const feedback = fbEl ? fbEl.value.trim() : '';
+  if (!feedback) { showToast('Introduce tus observaciones', 'error'); return; }
+  
+  const apiKey = localStorage.getItem('jeipyfit_groq_key');
+  if (!apiKey) { showToast('API Key requerida', 'error'); return; }
+
+  const modal = document.getElementById('weeklyReviewModal');
+  if (modal) modal.classList.remove('on');
+  
+  go(4); animLS();
+
+  const compactPlan = {
+    res: { cal: A.plan.res.cal, pro: A.plan.res.pro, car: A.plan.res.car, gra: A.plan.res.gra, obj: A.plan.res.obj },
+    nut: A.plan.nut,
+    ej: A.plan.ej
+  };
+
+  const prompt = `Preparador élite. Modifica el plan JSON actual basándote estrictamente en este feedback semanal: "${feedback}". 
+Devuelve EXCLUSIVAMENTE el objeto JSON modificado con la misma estructura, minificado y sin texto adicional explicativo.
+Estructura esperada: {"res":{"cal":0,"pro":0,"car":0,"gra":0,"obj":"..."},"nut":[...],"ej":[...]}
+Plan actual: ${JSON.stringify(compactPlan)}`;
+
+  try {
+    const raw = await callGroq(apiKey, prompt, 3500);
+    const parsed = JSON.parse(raw);
+    
+    A.plan = { ...A.plan, ...parsed };
+    A.weekLog = {};
+    
+    addHist({
+      type: 'cam',
+      title: 'Plan ajustado para la nueva semana',
+      body: `Ajustes aplicados según feedback: "${feedback}"`,
+      detail: { cal: A.plan.res.cal+'kcal', pro: A.plan.res.pro+'g' }
+    });
+
+    saveState();
+    renderPlan();
+    go(5); MT('plan');
+    showToast('¡Plan actualizado para la nueva semana! 🚀', 'success');
+  } catch (err) {
+    console.error(err);
+    showToast('Error al ajustar el plan: ' + err.message, 'error');
+    go(5); MT('plan');
+  }
 }
 
 // ── PESO ──
@@ -842,10 +859,7 @@ function deletePhoto() {
   showToast('Foto eliminada', 'success');
 }
 
-// ══════════════════════════════════════════════════════════════
 // ── HISTORIAL ──
-// ══════════════════════════════════════════════════════════════
-
 function addHist(item) {
   const now = new Date();
   A.history.unshift({
@@ -865,7 +879,6 @@ function HF(f, el) {
 }
 
 function renderHist() {
-  // Stats resumen
   const stats = document.getElementById('histStats');
   if (stats) {
     const ent = A.history.filter(h=>h.type==='ent').length;
@@ -924,10 +937,7 @@ function fmtDate(d) {
   return `${parseInt(day)} ${months[parseInt(mon)-1]||''}`;
 }
 
-// ══════════════════════════════════════════════════════════════
 // ── SWAP MODAL ──
-// ══════════════════════════════════════════════════════════════
-
 function OS(type, day, idx, cur) {
   A.editing = { type, day, idx, cur };
   document.getElementById('swapTit').textContent = type==='meal'?'COMIDA':'EJERCICIO';
@@ -942,7 +952,6 @@ async function fetchAlts(type, day, cur) {
   const apiKey = localStorage.getItem('jeipyfit_groq_key');
   if (!apiKey) { document.getElementById('swapBody').innerHTML = `<div style="color:var(--red);padding:10px">API Key no configurada.</div>`; return; }
 
-  // Prompts compactos
   const prompt = isM
     ? `Dieta ${u.dieta}. Cambiar "${cur}" día ${day}. 4 alternativas. {"alts":[{"n":"...","cal":400,"pro":35,"car":40,"gra":12,"desc":"..."}]}`
     : `Nivel ${u.exp}, equipo ${u.equipo}. Cambiar "${cur}" día ${day}. 4 alternativas equivalentes. {"alts":[{"n":"...","ser":4,"rep":"10-12","des":"90s","rir":"1","tem":"3-0-1-0","emo":"💪","tip":"..."}]}`;
@@ -994,12 +1003,10 @@ function applySwap(i) {
 function CM() { document.getElementById('swapModal').classList.remove('on'); }
 document.getElementById('swapModal')?.addEventListener('click', function(e) { if(e.target===this) CM(); });
 document.getElementById('measureModal')?.addEventListener('click', function(e) { if(e.target===this) closeMeasureModal(); });
+document.getElementById('weeklyReviewModal')?.addEventListener('click', function(e) { if(e.target===this) closeWeeklyReview(); });
 document.getElementById('photoViewer')?.addEventListener('click', function(e) { if(e.target===this) closePhotoViewer(); });
 
-// ══════════════════════════════════════════════════════════════
-// ── CHAT IA (Token-Efficient) ──
-// ══════════════════════════════════════════════════════════════
-
+// ── CHAT IA ──
 function initChat() {
   const ctx = A.plan ? `Cal:${A.plan.res.cal}|Pro:${A.plan.res.pro}g|Car:${A.plan.res.car}g|Gra:${A.plan.res.gra}g|Obj:${A.user?.obj}|Días:${A.user?.dias}|Exp:${A.user?.exp}` : 'Sin plan';
   A.chatHistory = [{ role:'system', content:`Asistente JEIPYFIT. Técnico y directo. Responde en Markdown ligero. PERFIL:${ctx}` }];
@@ -1023,7 +1030,6 @@ async function sendChat() {
   appendMsg('user', text);
   A.chatHistory.push({ role:'user', content:text });
 
-  // Token management: mantener máx 8 turnos + sistema
   if (A.chatHistory.length > 17) {
     A.chatHistory = [A.chatHistory[0], ...A.chatHistory.slice(-16)];
   }
@@ -1036,7 +1042,6 @@ async function sendChat() {
   if (btn) btn.disabled = true;
 
   try {
-    // Enriquecer sistema con stats recientes
     const msgs = [...A.chatHistory];
     const sessions = A.sessions, streak = calcStreak();
     const lastW = A.weights.length ? A.weights[A.weights.length-1].val : null;
@@ -1156,5 +1161,4 @@ function showToast(msg, type='') {
   t._to = setTimeout(() => t.className='toast', 2800);
 }
 
-// ── INIT ──
 document.addEventListener('DOMContentLoaded', loadState);
