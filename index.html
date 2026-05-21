@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#060609">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <title>JEIPYFIT IA — Entrenador Personal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header class="hdr" id="hdr">
+    <div class="logo-wrap">
+      <div class="logo-mark">J</div>
+      <div class="logo-text">JEIPY<em>FIT IA</em></div>
+    </div>
+    <nav class="nav" id="nav" style="display:none">
+      <button class="npill on" onclick="MT('plan')" id="np0">
+        <span class="npill-ico">📋</span><span class="npill-lbl">Plan</span>
+      </button>
+      <button class="npill" onclick="MT('prog')" id="np1">
+        <span class="npill-ico">📊</span><span class="npill-lbl">Progreso</span>
+      </button>
+      <button class="npill" onclick="MT('hist')" id="np2">
+        <span class="npill-ico">🗂</span><span class="npill-lbl">Historial</span>
+      </button>
+      <button class="npill" onclick="MT('ai')" id="np3">
+        <span class="npill-ico">🤖</span><span class="npill-lbl">Asistente</span>
+      </button>
+    </nav>
+    <button class="hdr-settings" id="settingsBtn" onclick="toggleSettings()" style="display:none" title="Ajustes">⚙</button>
+  </header>
+
+  <div class="settings-panel" id="settingsPanel">
+    <div class="sp-inner">
+      <div class="sp-title">AJUSTES</div>
+      <div class="sp-row">
+        <span>API Key (Groq)</span>
+        <button class="btn-ghost btn-xs" onclick="resetKey()">Cambiar key</button>
+      </div>
+      <div class="sp-row">
+        <span>Recordatorios</span>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="remToggle" class="toggle-inp" onchange="toggleReminders(this)">
+          <label for="remToggle" class="toggle-lbl"></label>
+        </div>
+      </div>
+      <div class="sp-row" id="remTimeRow" style="display:none">
+        <span>Hora de recordatorio</span>
+        <input type="time" id="remTime" value="08:00" class="time-inp" onchange="saveRemTime()">
+      </div>
+      <div class="sp-row">
+        <span>Unidades de peso</span>
+        <div class="seg-ctrl">
+          <button class="seg on" onclick="setUnit('kg',this)">kg</button>
+          <button class="seg" onclick="setUnit('lbs',this)">lbs</button>
+        </div>
+      </div>
+      <div class="sp-row">
+        <span>Exportar datos</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost btn-xs" onclick="exportarCSV()">CSV</button>
+          <button class="btn-ghost btn-xs" onclick="exportarPDF()">PDF</button>
+        </div>
+      </div>
+      <div class="sp-row">
+        <span style="color:var(--red-soft)">Borrar todos los datos</span>
+        <button class="btn-danger btn-xs" onclick="clearAll()">Borrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen on" id="s0">
+    <div class="welcome-grid">
+      <div class="welcome-left">
+        <div class="tag-pill">✦ Entrenador Personal IA — Enterprise</div>
+        <h1 class="hero-h1">TRANSFORMA<br><em>TU CUERPO</em></h1>
+        <p class="hero-sub">Plan 100% personalizado con dieta, ejercicio, asistente IA conversacional, seguimiento de fotos y análisis avanzado.</p>
+        <button class="btn-primary" onclick="go(1)">Comenzar estudio →</button>
+        <div class="trust-row">
+          <div class="trust-item"><span class="t-ico">🧬</span> Análisis corporal</div>
+          <div class="trust-item"><span class="t-ico">🥗</span> Plan nutricional</div>
+          <div class="trust-item"><span class="t-ico">🤖</span> IA conversacional</div>
+          <div class="trust-item"><span class="t-ico">📸</span> Fotos progreso</div>
+        </div>
+      </div>
+      <div class="welcome-right">
+        <div class="feat-stack">
+          <div class="feat-card fc-a">
+            <div class="fc-num">01</div>
+            <div class="fc-ico">🧬</div>
+            <strong>Estudio personal</strong>
+            <p>Análisis completo de composición corporal y estilo de vida</p>
+          </div>
+          <div class="feat-card fc-b">
+            <div class="fc-num">02</div>
+            <div class="fc-ico">🤖</div>
+            <strong>Asistente IA</strong>
+            <p>Chat inteligente que adapta tu plan en tiempo real</p>
+          </div>
+          <div class="feat-card fc-c">
+            <div class="fc-num">03</div>
+            <div class="fc-ico">📊</div>
+            <strong>Métricas avanzadas</strong>
+            <p>Dashboard con tendencias, predicciones y análisis de progreso</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="s1">
+    <div class="form-progress"><div class="fp-fill" style="width:25%"></div></div>
+    <div class="form-step-hdr">
+      <div class="step-badge">1 / 4</div>
+      <p class="stitle">TU <span>PERFIL</span></p>
+      <p class="ssub">Datos básicos para calibrar tu plan personalizado</p>
+    </div>
+    <div class="g3">
+      <div class="fg"><label>Edad</label><input type="number" id="edad" placeholder="28" min="15" max="80"></div>
+      <div class="fg"><label>Peso (kg)</label><input type="number" id="peso" placeholder="75" min="40" max="200" step="0.1"></div>
+      <div class="fg"><label>Altura (cm)</label><input type="number" id="altura" placeholder="175" min="140" max="220"></div>
+    </div>
+    <div class="g2">
+      <div class="fg"><label>Sexo</label>
+        <select id="sexo"><option value="">Seleccionar...</option><option>Hombre</option><option>Mujer</option><option>Prefiero no decir</option></select>
+      </div>
+      <div class="fg"><label>Nivel de actividad</label>
+        <select id="actividad"><option value="">Seleccionar...</option><option>Sedentario</option><option>Ligero</option><option>Moderado</option><option>Activo</option><option>Muy activo</option></select>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:16px">
+      <label>% Grasa corporal estimado</label>
+      <div class="range-wrap">
+        <span class="range-val" id="gv">20%</span>
+        <input type="range" id="gr" min="5" max="45" value="20" step="1" oninput="document.getElementById('gv').textContent=this.value+'%'">
+      </div>
+    </div>
+    <div class="fg"><label>Lesiones o limitaciones</label>
+      <textarea id="lesiones" placeholder="Ej: dolor rodilla, hernia lumbar... (o 'ninguna')"></textarea>
+    </div>
+    <div class="brow">
+      <button class="btn-ghost" onclick="go(0)">← Volver</button>
+      <button class="btn-primary" onclick="V(1,2)">Continuar →</button>
+    </div>
+    <div class="err" id="e1">Rellena todos los campos obligatorios.</div>
+  </div>
+
+  <div class="screen" id="s2">
+    <div class="form-progress"><div class="fp-fill" style="width:50%"></div></div>
+    <div class="form-step-hdr">
+      <div class="step-badge">2 / 4</div>
+      <p class="stitle">OBJETIVOS <span>&amp;</span> ENTRENO</p>
+      <p class="ssub">¿Qué quieres conseguir y cómo quieres entrenar?</p>
+    </div>
+    <div class="fg" style="margin-bottom:18px">
+      <label>Objetivo principal (Múltiple)</label>
+      <div class="chips" id="objC">
+        <div class="chip" data-v="tonificar y definir" onclick="TC(this,'obj')">🎯 Tonificar y definir</div>
+        <div class="chip" data-v="bajar % de grasa" onclick="TC(this,'obj')">🔥 Bajar % grasa</div>
+        <div class="chip" data-v="ganar masa muscular" onclick="TC(this,'obj')">💪 Ganar músculo</div>
+        <div class="chip" data-v="perder peso" onclick="TC(this,'obj')">⚖️ Perder peso</div>
+        <div class="chip" data-v="mejorar resistencia" onclick="TC(this,'obj')">🏃 Resistencia</div>
+        <div class="chip" data-v="mantenimiento y salud" onclick="TC(this,'obj')">❤️ Mantenimiento</div>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:18px">
+      <label>Tipo de entrenamiento (Múltiple)</label>
+      <div class="chips" id="tipoC">
+        <div class="chip" data-v="gym con pesas" onclick="TC(this,'tipo')">🏋️ Gym / Pesas</div>
+        <div class="chip" data-v="calistenia" onclick="TC(this,'tipo')">🤸 Calistenia</div>
+        <div class="chip" data-v="cardio" onclick="TC(this,'tipo')">🚴 Cardio</div>
+        <div class="chip" data-v="mixto gym y cardio" onclick="TC(this,'tipo')">⚡ Mixto</div>
+        <div class="chip" data-v="funcional" onclick="TC(this,'tipo')">🎽 Funcional</div>
+        <div class="chip" data-v="en casa sin equipamiento" onclick="TC(this,'tipo')">🏠 En casa</div>
+      </div>
+    </div>
+    <div class="fg" style="margin-bottom:18px">
+      <label>Días de entrenamiento</label>
+      <div class="dg" id="dg">
+        <div class="dd" data-d="Lun" onclick="TD(this)"><div class="dn">L</div><div class="da">LUN</div></div>
+        <div class="dd" data-d="Mar" onclick="TD(this)"><div class="dn">M</div><div class="da">MAR</div></div>
+        <div class="dd" data-d="Mié" onclick="TD(this)"><div class="dn">X</div><div class="da">MIÉ</div></div>
+        <div class="dd" data-d="Jue" onclick="TD(this)"><div class="dn">J</div><div class="da">JUE</div></div>
+        <div class="dd" data-d="Vie" onclick="TD(this)"><div class="dn">V</div><div class="da">VIE</div></div>
+        <div class="dd" data-d="Sáb" onclick="TD(this)"><div class="dn">S</div><div class="da">SÁB</div></div>
+        <div class="dd" data-d="Dom" onclick="TD(this)"><div class="dn">D</div><div class="da">DOM</div></div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fg"><label>Duración por sesión</label>
+        <select id="dur"><option value="">Seleccionar...</option><option>30 minutos</option><option>45 minutos</option><option>60 minutos</option><option>75-90 minutos</option><option>+90 minutos</option></select>
+      </div>
+      <div class="fg"><label>Experiencia</label>
+        <select id="exp"><option value="">Seleccionar...</option><option>Principiante (&lt;1 año)</option><option>Intermedio (1-3 años)</option><option>Avanzado (+3 años)</option></select>
+      </div>
+    </div>
+    <div class="brow">
+      <button class="btn-ghost" onclick="go(1)">← Volver</button>
+      <button class="btn-primary" onclick="V(2,3)">Continuar →</button>
+    </div>
+    <div class="err" id="e2">Selecciona al menos un objetivo, un tipo de entreno y un día.</div>
+  </div>
+
+  <div class="screen" id="s3">
+    <div class="form-progress"><div class="fp-fill" style="width:75%"></div></div>
+    <div class="form-step-hdr">
+      <div class="step-badge">3 / 4</div>
+      <p class="stitle">TU <span>DIETA</span></p>
+      <p class="ssub">Preferencias alimentarias para un plan realista</p>
+    </div>
+    <div class="fg" style="margin-bottom:18px">
+      <label>Tipo de dieta</label>
+      <div class="chips" id="dietaC">
+        <div class="chip" data-v="omnívora" onclick="SC(this,'dieta')">🍖 Omnívora</div>
+        <div class="chip" data-v="vegetariana" onclick="SC(this,'dieta')">🥗 Vegetariana</div>
+        <div class="chip" data-v="vegana" onclick="SC(this,'dieta')">🌱 Vegana</div>
+        <div class="chip" data-v="sin gluten" onclick="SC(this,'dieta')">🌾 Sin gluten</div>
+        <div class="chip" data-v="sin lactosa" onclick="SC(this,'dieta')">🥛 Sin lactosa</div>
+        <div class="chip" data-v="mediterránea" onclick="SC(this,'dieta')">🫒 Mediterránea</div>
+      </div>
+      <input type="hidden" id="dieta">
+    </div>
+    <div class="fg"><label>Alimentos que te gustan</label>
+      <textarea id="gusta" placeholder="Ej: pollo, arroz, pasta, aguacate, huevos, atún, fruta..."></textarea>
+    </div>
+    <div class="fg"><label>Alimentos que NO te gustan / alergias</label>
+      <textarea id="nogusta" placeholder="Ej: no me gusta el pescado, alérgico a frutos secos..."></textarea>
+    </div>
+    <div class="g2">
+      <div class="fg"><label>Estructura de comidas</label>
+        <select id="comidas"><option value="">Seleccionar...</option><option>3 comidas</option><option>3 comidas + 2 snacks</option><option>4 comidas</option><option>5-6 comidas</option><option>Ayuno 16/8</option></select>
+      </div>
+      <div class="fg"><label>Presupuesto</label>
+        <select id="presu"><option value="">Seleccionar...</option><option>Ajustado / Económico</option><option>Moderado</option><option>Sin restricciones</option></select>
+      </div>
+    </div>
+
+    <div class="goal-target-box">
+      <div class="gtb-label">🎯 Peso objetivo (opcional)</div>
+      <div class="g2">
+        <div class="fg" style="margin:0">
+          <label>Peso meta (kg)</label>
+          <input type="number" id="pesoMeta" placeholder="Ej: 70" step="0.5" min="30" max="200">
+        </div>
+        <div class="fg" style="margin:0">
+          <label>Plazo estimado</label>
+          <select id="plazoMeta"><option value="">Seleccionar...</option><option>1 mes</option><option>2-3 meses</option><option>4-6 meses</option><option>+6 meses</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="brow">
+      <button class="btn-ghost" onclick="go(2)">← Volver</button>
+      <button class="btn-primary" onclick="GEN()">Generar plan con IA ✨</button>
+    </div>
+    <div class="err" id="e3">Selecciona tipo de dieta y estructura de comidas.</div>
+  </div>
+
+  <div class="screen" id="s6">
+    <div class="form-progress"><div class="fp-fill" id="wizardProgress" style="width:10%"></div></div>
+    <div class="form-step-hdr">
+      <div class="step-badge" id="wizardStep">Pregunta 1 / 4</div>
+      <p class="stitle">IA <span>COACH</span></p>
+      <p class="ssub">Conociendo tu contexto para afinar el plan al milímetro</p>
+    </div>
+    
+    <div class="chat-window wizard-window" id="wizardWindow"></div>
+    <div class="wizard-quick-opts" id="wizardQuickOpts"></div>
+    
+    <div class="chat-input-wrap">
+      <textarea class="chat-textarea" id="wizardInput" placeholder="Escribe tu respuesta..." rows="1" onkeydown="wizardInputKeydown(event)" oninput="autoResizeChat(this)"></textarea>
+      <button class="chat-send" onclick="wizardSend()" id="wizardSendBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="screen" id="s4">
+    <div class="ldwrap">
+      <div class="ld-orb">
+        <div class="orb-ring r1"></div>
+        <div class="orb-ring r2"></div>
+        <div class="orb-ring r3"></div>
+        <div class="orb-core">✦</div>
+      </div>
+      <h2 class="ld-title">CREANDO TU PLAN</h2>
+      <p class="ld-sub">La IA está analizando tu perfil completo...</p>
+      <ul class="lsteps">
+        <li class="ls" id="ls0"><span class="ls-ico">🧬</span>Analizando composición corporal</li>
+        <li class="ls" id="ls1"><span class="ls-ico">🎯</span>Calculando calorías y macros</li>
+        <li class="ls" id="ls2"><span class="ls-ico">🥗</span>Creando plan nutricional</li>
+        <li class="ls" id="ls3"><span class="ls-ico">💪</span>Diseñando rutina de ejercicios</li>
+        <li class="ls" id="ls4"><span class="ls-ico">✅</span>Finalizando programa</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="screen" id="s5">
+
+    <div class="mpane on" id="mp-plan">
+      <div class="panel-hdr">
+        <div>
+          <p class="stitle">MI <span>PLAN</span></p>
+          <p class="ssub" id="planSub">Generado con IA</p>
+        </div>
+        <button class="btn-ghost btn-xs" onclick="go(1)">⚡ Nuevo estudio</button>
+      </div>
+
+      <div class="macro-dash" id="psum"></div>
+
+      <div class="tabs">
+        <button class="tab on" onclick="PT('nut',0)">🥗 Nutrición</button>
+        <button class="tab" onclick="PT('ej',1)">💪 Ejercicio</button>
+        <button class="tab" onclick="PT('ana',2)">📊 Análisis</button>
+      </div>
+      <div class="tpane on" id="tp-nut"></div>
+      <div class="tpane" id="tp-ej"></div>
+      <div class="tpane" id="tp-ana"></div>
+    </div>
+
+    <div class="mpane" id="mp-ai">
+      <div class="panel-hdr">
+        <div>
+          <p class="stitle">ASISTENTE <span>IA</span></p>
+          <p class="ssub">Chat inteligente con tu entrenador personal</p>
+        </div>
+        <button class="btn-ghost btn-xs" onclick="clearChat()">🗑 Limpiar</button>
+      </div>
+      <div class="ai-suggestions" id="aiSugg">
+        <div class="ai-sugg-item" onclick="sendSugg(this)">💪 ¿Cómo puedo mejorar mi rutina esta semana?</div>
+        <div class="ai-sugg-item" onclick="sendSugg(this)">🥗 ¿Qué puedo comer antes de entrenar?</div>
+        <div class="ai-sugg-item" onclick="sendSugg(this)">📈 ¿Cómo voy progresando según mis datos?</div>
+        <div class="ai-sugg-item" onclick="sendSugg(this)">😴 ¿Cómo optimizar mi recuperación?</div>
+      </div>
+      <div class="chat-window" id="chatWindow">
+        <div class="chat-msg ai intro-msg">
+          <div class="chat-avatar">🤖</div>
+          <div class="chat-bubble">
+            <p>¡Hola! Soy tu asistente de fitness personal. Tengo acceso completo a tu plan, progreso y objetivos.</p>
+            <p style="margin-top:6px">Pregúntame lo que quieras: ajustes al plan, dudas de nutrición, motivación, técnica de ejercicios... ¡Estoy aquí para ayudarte!</p>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-wrap">
+        <textarea class="chat-textarea" id="chatInput" placeholder="Escribe tu pregunta..." rows="1" onkeydown="chatKeydown(event)" oninput="autoResizeChat(this)"></textarea>
+        <button class="chat-send" onclick="sendChat()" id="chatSendBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="mpane" id="mp-prog">
+      <div class="panel-hdr">
+        <div>
+          <p class="stitle">MI <span>PROGRESO</span></p>
+          <p class="ssub">Seguimiento detallado semana a semana</p>
+        </div>
+        <button class="btn-ghost btn-xs" onclick="MT('ai')">🤖 Analizar con IA</button>
+      </div>
+
+      <div class="kpi-grid" id="progCards"></div>
+
+      <div class="goal-progress-card" id="goalBar" style="display:none"></div>
+
+      <div class="section-label">📅 ESTA SEMANA</div>
+      <div class="wcheck" id="wcheck"></div>
+
+      <div class="chart-card" id="weightChartCard">
+        <div class="chart-hdr">
+          <span class="chart-title">📈 Evolución del peso</span>
+          <div class="chart-tabs">
+            <button class="ctab on" onclick="setChartRange(7,this)">7d</button>
+            <button class="ctab" onclick="setChartRange(30,this)">30d</button>
+            <button class="ctab" onclick="setChartRange(999,this)">Todo</button>
+          </div>
+        </div>
+        <div id="wchartWrap"></div>
+      </div>
+
+      <div class="chart-card" id="macroChartCard">
+        <div class="chart-hdr">
+          <span class="chart-title">🍩 Distribución de Macros</span>
+        </div>
+        <div id="macroChartWrap"></div>
+      </div>
+
+      <div class="section-label">📏 MEDIDAS CORPORALES</div>
+      <div class="measures-grid" id="measuresGrid">
+        <div class="measure-card" onclick="addMeasure('cintura')">
+          <div class="mc-lbl">Cintura</div>
+          <div class="mc-val" id="mc-cintura">—</div>
+          <div class="mc-unit">cm</div>
+        </div>
+        <div class="measure-card" onclick="addMeasure('pecho')">
+          <div class="mc-lbl">Pecho</div>
+          <div class="mc-val" id="mc-pecho">—</div>
+          <div class="mc-unit">cm</div>
+        </div>
+        <div class="measure-card" onclick="addMeasure('cadera')">
+          <div class="mc-lbl">Cadera</div>
+          <div class="mc-val" id="mc-cadera">—</div>
+          <div class="mc-unit">cm</div>
+        </div>
+        <div class="measure-card" onclick="addMeasure('brazo')">
+          <div class="mc-lbl">Brazo</div>
+          <div class="mc-val" id="mc-brazo">—</div>
+          <div class="mc-unit">cm</div>
+        </div>
+      </div>
+
+      <div class="register-grid">
+        <div class="reg-card">
+          <div class="reg-label">⚖️ REGISTRAR PESO</div>
+          <div class="weight-inp">
+            <input type="number" id="wInput" placeholder="74.3" step="0.1" min="30" max="300">
+            <span class="wi-unit">kg</span>
+            <button class="btn-primary btn-xs" onclick="LW()">Guardar</button>
+          </div>
+        </div>
+        <div class="reg-card">
+          <div class="reg-label">📝 AÑADIR NOTA</div>
+          <div class="nota-form">
+            <textarea id="notaText" placeholder="Escribe una nota sobre tu sesión..."></textarea>
+            <div class="nota-form-row">
+              <div class="tipo-sel">
+                <div class="tipo-opt not on" data-t="not" onclick="selNota(this)">📝</div>
+                <div class="tipo-opt ent" data-t="ent" onclick="selNota(this)">💪</div>
+                <div class="tipo-opt sal" data-t="sal" onclick="selNota(this)">🔄</div>
+              </div>
+              <button class="btn-primary btn-xs" onclick="addNota()">Añadir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">📸 FOTOS DE PROGRESO</div>
+      <div class="photos-section" id="photosSection">
+        <div class="photo-add-btn" onclick="triggerPhoto()">
+          <div class="pab-ico">📷</div>
+          <div class="pab-lbl">Añadir foto</div>
+        </div>
+        <div class="photos-grid" id="photosGrid"></div>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
+      </div>
+    </div>
+
+    <div class="mpane" id="mp-hist">
+      <div class="panel-hdr">
+        <div>
+          <p class="stitle">HISTO<span>RIAL</span></p>
+          <p class="ssub">Todo lo que has hecho, registrado</p>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost btn-xs" onclick="exportarCSV()">📥 CSV</button>
+          <button class="btn-ghost btn-xs" onclick="exportarPDF()">📄 PDF</button>
+        </div>
+      </div>
+
+      <div class="hist-stats" id="histStats"></div>
+
+      <div class="hist-filters" id="histFilters">
+        <button class="hf on" onclick="HF('all',this)">Todos</button>
+        <button class="hf f-ent" onclick="HF('ent',this)">💪 Entrenos</button>
+        <button class="hf f-pes" onclick="HF('pes',this)">⚖️ Peso</button>
+        <button class="hf f-cam" onclick="HF('cam',this)">🔄 Cambios</button>
+        <button class="hf f-sal" onclick="HF('sal',this)">📝 Notas</button>
+      </div>
+      <div id="histTimeline" style="margin-top:20px"></div>
+    </div>
+
+  </div>
+  
+  <div class="overlay" id="swapModal">
+    <div class="modal">
+      <button class="modal-close" onclick="CM()">✕</button>
+      <h2>CAMBIAR <span id="swapTit">ELEMENTO</span></h2>
+      <p class="modal-sub" id="swapSub">Generando alternativas personalizadas con IA...</p>
+      <div id="swapBody"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="measureModal">
+    <div class="modal modal-sm">
+      <button class="modal-close" onclick="closeMeasureModal()">✕</button>
+      <h2>REGISTRAR <span id="measureModalTitle">MEDIDA</span></h2>
+      <div class="fg" style="margin-top:16px">
+        <label id="measureModalLabel">Valor (cm)</label>
+        <input type="number" id="measureInput" placeholder="Ej: 82" step="0.5" min="10" max="300">
+      </div>
+      <div class="brow" style="margin-top:12px">
+        <button class="btn-ghost btn-xs" onclick="closeMeasureModal()">Cancelar</button>
+        <button class="btn-primary btn-xs" onclick="saveMeasure()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="photoViewer">
+    <div class="photo-viewer-inner">
+      <button class="modal-close photo-viewer-close" onclick="closePhotoViewer()">✕</button>
+      <img id="photoViewerImg" src="" alt="Foto de progreso">
+      <div class="photo-viewer-info" id="photoViewerInfo"></div>
+      <button class="btn-danger btn-xs photo-del-btn" onclick="deletePhoto()">🗑 Eliminar foto</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+</div><script src="app.js" defer></script>
+</body>
+</html>
