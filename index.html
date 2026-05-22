@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#060609">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,6 +13,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -22,6 +26,7 @@
     <div class="logo-wrap">
       <img src="logo.png" alt="JEIPYFIT IA Logo" class="logo-img">
       <div class="logo-text">JEIPY<em>FIT IA</em></div>
+      <div id="cloudSyncStatus" class="sync-indicator offline" style="width: 10px; height: 10px; border-radius: 50%; transition: all 0.3s ease; margin-left:8px;" title="Estado Local"></div>
     </div>
     <nav class="nav" id="nav" style="display:none">
       <button class="npill on" onclick="MT('plan')" id="np0">
@@ -42,7 +47,11 @@
 
   <div class="settings-panel" id="settingsPanel">
     <div class="sp-inner">
-      <div class="sp-title">AJUSTES</div>
+      <div class="sp-title">AJUSTES ENTERPRISE</div>
+      <div class="sp-row">
+        <span>Sincronización Cloud</span>
+        <button id="authBtn" class="btn-ghost btn-xs" onclick="toggleAuth()">Conectar Firebase</button>
+      </div>
       <div class="sp-row">
         <span>API Key (Groq)</span>
         <button class="btn-ghost btn-xs" onclick="resetKey()">Cambiar key</button>
@@ -233,7 +242,7 @@
     <div class="fg"><label>Alimentos que te gustan</label>
       <textarea id="gusta" placeholder="Ej: pollo, arroz, pasta, aguacate, huevos, atún, fruta..."></textarea>
     </div>
-    <div class="fg"><label>Alimentos que NO te gustan / allergies</label>
+    <div class="fg"><label>Alimentos que NO te gustan / alergias</label>
       <textarea id="nogusta" placeholder="Ej: no me gusta el pescado, alérgico a frutos secos..."></textarea>
     </div>
     <div class="g2">
@@ -269,7 +278,7 @@
   <div class="screen" id="s6">
     <div class="form-progress"><div class="fp-fill" id="wizardProgress" style="width:10%"></div></div>
     <div class="form-step-hdr">
-      <div class="step-badge" id="wizardStep">Pregunta 1 / 4</div>
+      <div class="step-badge" id="wizardStep">Afinamiento 1 / 4</div>
       <p class="stitle">IA <span>COACH</span></p>
       <p class="ssub">Conociendo tu contexto para afinar el plan al milímetro</p>
     </div>
@@ -374,6 +383,9 @@
 
       <div class="section-label">📅 ESTA SEMANA</div>
       <div class="wcheck" id="wcheck"></div>
+
+      <div class="section-label" style="margin-top:10px;">📚 HISTORIAL DE SEMANAS COMPLETADAS</div>
+      <div id="pastWeeksList"></div>
 
       <div class="chart-card" id="weightChartCard">
         <div class="chart-hdr">
@@ -508,15 +520,11 @@
     <div class="modal">
       <button class="modal-close" onclick="closeWeeklyReview()">✕</button>
       <h2>REVISIÓN <span>SEMANAL</span> 🏆</h2>
-      <p class="modal-sub">¡Enhorabuena! Has completado todas tus sesiones planificadas. ¿Añadimos cambios u observaciones para la siguiente semana?</p>
-      <div class="fg">
-        <label>Observaciones, Fatiga o Ajustes desados</label>
-        <textarea id="weeklyFeedback" placeholder="Ej: Las piernas van muy fatigadas, reduce volumen ahí. En la nutrición añade opciones de snacks rápidos..."></textarea>
+      <div class="form-progress" style="margin-top:12px; margin-bottom: 20px;">
+        <div class="fp-fill" id="wrProgress" style="width:33%"></div>
       </div>
-      <div class="brow" style="margin-top:16px">
-        <button class="btn-ghost" onclick="closeWeeklyReview()">Mantener plan actual</button>
-        <button class="btn-primary" onclick="adjustPlanWithAI()">Optimizar Plan con IA ✨</button>
-      </div>
+      <p class="modal-sub" id="wrQuestion" style="font-size: 14px; color: var(--t1); font-weight: 600;">Cargando...</p>
+      <div class="wizard-quick-opts" id="wrOptions" style="display: flex; flex-direction: column; gap: 10px;"></div>
     </div>
   </div>
 
@@ -531,6 +539,7 @@
 
   <div class="toast" id="toast"></div>
 
-</div><script src="app.js" defer></script>
+</div>
+<script src="app.js" defer></script>
 </body>
 </html>

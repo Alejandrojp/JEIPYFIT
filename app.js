@@ -9,32 +9,97 @@ const A = {
   plan: null, user: null,
   histFilter: 'all', notaTipo: 'not',
   history: [], weights: [], measures: {},
-  weekLog: {}, sessions: 0,
+  weekLog: {}, pastWeeks: [], sessions: 0,
   editing: { type: '', day: '', idx: 0, cur: '' },
   chatHistory: [],
   photos: [],
   chartRange: 7,
   wizard: { active: false, step: 0, answers: {}, msgs: [], loading: false },
-  settings: { unit: 'kg', reminders: false, remTime: '08:00' }
+  settings: { unit: 'kg', reminders: false, remTime: '08:00' },
+  firebaseUser: null
 };
 
-// ── PERSISTENCIA ──
+// ── FIREBASE ENTERPRISE SETUP ──
+let db = null;
+function initFirebase() {
+  const firebaseConfig = {
+    apiKey: "TU_API_KEY",
+    authDomain: "tu-proyecto.firebaseapp.com",
+    projectId: "tu-proyecto",
+    storageBucket: "tu-proyecto.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdef123"
+  };
+  
+  if(typeof firebase !== 'undefined') {
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+        firebase.firestore().enablePersistence().catch(err => {
+          console.warn("Persistencia local offline no disponible:", err);
+        });
+      }
+      db = firebase.firestore();
+      setupAuthListener();
+    } catch(e) { console.error("Firebase init fallido", e); }
+  }
+}
+
+function setupAuthListener() {
+  firebase.auth().onAuthStateChanged(user => {
+    const ind = document.getElementById('cloudSyncStatus');
+    const authBtn = document.getElementById('authBtn');
+    if (user) {
+      A.firebaseUser = user;
+      if(ind) { ind.style.background = "var(--grn)"; ind.style.boxShadow = "0 0 10px var(--grn)"; ind.title = `Sincronizado: ${user.email}`; }
+      if(authBtn) authBtn.textContent = "Desconectar Cloud";
+      pullStateFromCloud();
+    } else {
+      A.firebaseUser = null;
+      if(ind) { ind.style.background = "var(--org)"; ind.style.boxShadow = "0 0 10px var(--org)"; ind.title = "Guardado Localmente"; }
+      if(authBtn) authBtn.textContent = "Conectar Firebase";
+    }
+  });
+}
+
+function toggleAuth() {
+  if (A.firebaseUser) {
+    firebase.auth().signOut().then(() => showToast('Desconectado de la Nube', 'success'));
+  } else {
+    const email = prompt('Introduce tu Email Corporativo:');
+    const pass = prompt('Introduce tu Contraseña:');
+    if (email && pass) {
+      firebase.auth().signInWithEmailAndPassword(email, pass)
+        .then(() => showToast('Cloud Conectado', 'success'))
+        .catch(err => {
+          if (err.code === 'auth/user-not-found') {
+            firebase.auth().createUserWithEmailAndPassword(email, pass).then(() => showToast('Cuenta Creada', 'success')).catch(e => showToast('Error: ' + e.message, 'error'));
+          } else { showToast('Error: ' + err.message, 'error'); }
+        });
+    }
+  }
+}
+
+// ── PERSISTENCIA HÍBRIDA ──
 function saveState() {
   const s = {
     user: A.user, plan: A.plan, weights: A.weights,
-    weekLog: A.weekLog, sessions: A.sessions, history: A.history,
+    weekLog: A.weekLog, pastWeeks: A.pastWeeks, sessions: A.sessions, history: A.history,
     days: A.days, obj: A.obj, tipo: A.tipo, dieta: A.dieta,
     measures: A.measures, photos: A.photos, settings: A.settings
   };
-  try { localStorage.setItem('jeipyfit_v2', JSON.stringify(s)); } catch(e) { showToast('Error guardando datos', 'error'); }
+  try { localStorage.setItem('jeipyfit_v2', JSON.stringify(s)); } catch(e) { showToast('Error LocalCache', 'error'); }
+  if (A.firebaseUser && db) db.collection('users').doc(A.firebaseUser.uid).set(s).catch(err => console.error("Error en nube:", err));
 }
 
 function loadState() {
+  initFirebase();
   const saved = localStorage.getItem('jeipyfit_v2') || localStorage.getItem('jeipyfit_state');
   if (!saved) return;
   try {
     const p = JSON.parse(saved);
     Object.assign(A, p);
+    if (!A.pastWeeks) A.pastWeeks = [];
     if (A.settings) applySettings();
     if (A.plan) {
       document.getElementById('nav').style.display = 'flex';
@@ -44,6 +109,28 @@ function loadState() {
     renderMeasureCards();
     renderPhotos();
   } catch(e) { console.error('Rehidratación fallida', e); }
+}
+
+function pullStateFromCloud() {
+  if (!A.firebaseUser || !db) return;
+  db.collection('users').doc(A.firebaseUser.uid).get().then(doc => {
+    if (doc.exists) {
+      const cloudData = doc.data();
+      Object.assign(A, cloudData);
+      if (!A.pastWeeks) A.pastWeeks = [];
+      localStorage.setItem('jeipyfit_v2', JSON.stringify(cloudData));
+      if (A.settings) applySettings();
+      if (A.plan) {
+        document.getElementById('nav').style.display = 'flex';
+        document.getElementById('settingsBtn').style.display = 'flex';
+        renderPlan();
+      }
+      renderMeasureCards();
+      renderPhotos();
+      if(A.screen === 5) renderProg();
+      showToast('Sincronización Cloud ✓', 'success');
+    }
+  });
 }
 
 function applySettings() {
@@ -265,6 +352,21 @@ async function wizardFinish() {
   await GEN(true);
 }
 
+// ── SANITIZADOR JSON GROQ ──
+function sanitizeLLMResponse(raw) {
+  try {
+    let clean = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const firstBrace = clean.indexOf('{');
+    const lastBrace = clean.lastIndexOf('}');
+    if(firstBrace !== -1 && lastBrace !== -1) {
+      return clean.substring(firstBrace, lastBrace + 1);
+    }
+    return clean;
+  } catch(e) {
+    return raw;
+  }
+}
+
 // ── GROQ API ──
 async function callGroq(apiKey, prompt, maxTokens = 3800, maxRetries = 2) {
   let attempt = 0;
@@ -276,7 +378,7 @@ async function callGroq(apiKey, prompt, maxTokens = 3800, maxRetries = 2) {
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           messages: [
-            { role: 'system', content: 'Preparador físico élite. SIEMPRE responde con JSON minificado estricto, sin texto extra.' },
+            { role: 'system', content: 'Preparador físico élite. SIEMPRE responde con JSON minificado estricto, sin texto extra. NUNCA envuelvas en markdown.' },
             { role: 'user', content: prompt }
           ],
           temperature: 0.7,
@@ -290,7 +392,8 @@ async function callGroq(apiKey, prompt, maxTokens = 3800, maxRetries = 2) {
         if (r.status === 401) { localStorage.removeItem('jeipyfit_groq_key'); throw new Error('invalid_api_key'); }
         throw new Error(err.error?.message || `HTTP ${r.status}`);
       }
-      return (await r.json()).choices[0].message.content.trim();
+      const content = (await r.json()).choices[0].message.content.trim();
+      return sanitizeLLMResponse(content);
     } catch (error) {
       if (attempt === maxRetries) throw new Error(error.message);
       attempt++;
@@ -323,7 +426,7 @@ async function GEN(fromWizard = false) {
     const raw = await callGroq(apiKey, buildP(A.user), 3800);
     A.plan = JSON.parse(raw);
     A.weights = [{ date: today(), ts: Date.now(), val: parseFloat(A.user.peso) }];
-    A.weekLog = {}; A.sessions = 0;
+    A.weekLog = {}; A.pastWeeks = []; A.sessions = 0;
 
     addHist({ type: 'pla', title: 'Plan generado',
       body: `Objetivo: <strong>${A.user.obj}</strong> · ${A.days.length} días/sem`,
@@ -524,6 +627,25 @@ function renderProg() {
     </div>`;
   }).join('');
 
+  const pwList = document.getElementById('pastWeeksList');
+  if (pwList) {
+    if (!A.pastWeeks || A.pastWeeks.length === 0) {
+      pwList.innerHTML = '<div style="color:var(--t4); font-size:12px; padding:10px 0; text-align:center;">Aún no has cerrado ninguna semana.</div>';
+    } else {
+      pwList.innerHTML = A.pastWeeks.map((pw, i) => `
+        <div class="scard" style="margin-bottom:10px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <strong style="color:var(--lime); font-size:13px; font-weight:800;">Semana ${i+1}</strong>
+            <span style="font-size:10px; color:var(--t3); font-family:var(--font-mono);">${pw.date}</span>
+          </div>
+          <div style="font-size:12px; color:var(--t2); margin-bottom:6px;">Adherencia: <strong style="color:var(--t1)">${pw.adherence}</strong></div>
+          <div style="font-size:12px; color:var(--t2); margin-bottom:6px;">Fatiga SNC reportada: <span style="color:var(--t1)">${pw.feedback?.fatiga || 'N/A'}</span></div>
+          <div style="font-size:11px; color:var(--t3); line-height:1.5; font-style:italic;">IA: ${pw.aiNotes}</div>
+        </div>
+      `).join('');
+    }
+  }
+
   renderWeightChart();
   renderMacroChart();
   renderMeasureCards();
@@ -693,99 +815,85 @@ function saveMeasure() {
 }
 function closeMeasureModal() { document.getElementById('measureModal').classList.remove('on'); }
 
-// ── WEEK CHECK (Actualizado para captura de revisión) ──
-function CK(day) {
-  const cur = A.weekLog[day] || '';
-  if (cur === '') {
-    A.weekLog[day] = 'done'; A.sessions++;
-    const dp = A.plan?.ej?.find(d=>d.dia===day);
-    const exList = dp?.ex?.map(e=>e.n) || [];
-    addHist({ type:'ent', title:`Entrenamiento completado — ${day}`,
-      body:`Sesión de <strong>${dp?.ts||'entreno'}</strong> completada`,
-      detail:{ sesion:dp?.ts||'—', ejercicios:exList.length+' ejercicios' }, exList
-    });
-    showToast(`💪 ¡${day} completado!`, 'success');
+// ── REVISIÓN SEMANAL CONVERSACIONAL (3 PASOS ENTERPRISE) ──
+const REVIEW_QUESTIONS = [
+  { id: 'fatiga', text: '¡Semana completada! 🏆 Del 1 al 10, ¿qué nivel de fatiga general tienes?', options: ['1-3 (Fresco)', '4-6 (Normal)', '7-8 (Cansado)', '9-10 (Exhausto)'] },
+  { id: 'adherencia', text: '¿Cómo ha ido la dieta esta semana?', options: ['Perfecta (100%)', 'Con algún fallo (80%)', 'Me costó bastante (<60%)'] },
+  { id: 'ajuste', text: '¿Qué ajustamos para la próxima semana?', options: ['Mantener igual', 'Subir intensidad', 'Bajar volumen', 'Cambiar dieta'] }
+];
+
+let currentReviewStep = 0;
+let reviewAnswers = {};
+
+function CK(day) { 
+  const cur = A.weekLog[day] || ''; 
+  if (cur==='') { 
+    A.weekLog[day] = 'done'; A.sessions++; 
+    addHist({ type:'ent', title:`Día completado — ${day}`, body:'Sesión registrada con éxito.', detail:{} });
+    checkWeeklyCompletion(); 
+  } else if (cur==='done') { 
+    A.weekLog[day] = 'skip'; A.sessions--; 
+    addHist({ type:'sal', title:`Día saltado — ${day}`, body:'Sesión marcada como saltada.', detail:{} });
     checkWeeklyCompletion();
-  } else if (cur === 'done') {
-    A.weekLog[day] = 'skip'; A.sessions = Math.max(0, A.sessions-1);
-    addHist({ type:'sal', title:`Sesión saltada — ${day}`, body:`Marcado como saltado`, detail:{} });
   } else {
-    delete A.weekLog[day];
+    delete A.weekLog[day]; 
   }
-  saveState(); renderProg();
+  saveState(); renderProg(); 
 }
 
-function checkWeeklyCompletion() {
+function checkWeeklyCompletion() { 
   if (!A.days || A.days.length === 0) return;
-  const allDone = A.days.every(d => A.weekLog[d] === 'done');
-  if (allDone) {
-    setTimeout(() => {
-      const modal = document.getElementById('weeklyReviewModal');
-      if (modal) {
-        modal.classList.add('on');
-        const fb = document.getElementById('weeklyFeedback');
-        if (fb) fb.value = '';
-      }
-    }, 800);
-  }
+  const weekFinished = A.days.every(d => A.weekLog[d] === 'done' || A.weekLog[d] === 'skip');
+  if (weekFinished) { 
+    currentReviewStep = 0; reviewAnswers = {}; 
+    setTimeout(() => { 
+      renderReviewStep(); 
+      document.getElementById('weeklyReviewModal').classList.add('on'); 
+    }, 600); 
+  } 
 }
 
-function closeWeeklyReview() {
-  const modal = document.getElementById('weeklyReviewModal');
-  if (modal) modal.classList.remove('on');
-  A.weekLog = {};
-  saveState();
-  renderProg();
+function renderReviewStep() { 
+  const q = REVIEW_QUESTIONS[currentReviewStep]; 
+  document.getElementById('wrQuestion').textContent = q.text; 
+  document.getElementById('wrOptions').innerHTML = q.options.map(o => `<button class="wizard-opt" onclick="handleReviewAnswer('${o}')">${o}</button>`).join(''); 
+  document.getElementById('wrProgress').style.width = ((currentReviewStep+1)/3)*100+'%'; 
 }
 
-async function adjustPlanWithAI() {
-  const fbEl = document.getElementById('weeklyFeedback');
-  const feedback = fbEl ? fbEl.value.trim() : '';
-  if (!feedback) { showToast('Introduce tus observaciones', 'error'); return; }
+async function handleReviewAnswer(ans) { 
+  reviewAnswers[REVIEW_QUESTIONS[currentReviewStep].id] = ans; 
+  if(currentReviewStep<2) { currentReviewStep++; renderReviewStep(); } 
+  else await processEnterpriseAdjustment(); 
+}
+
+async function processEnterpriseAdjustment() {
+  document.getElementById('wrOptions').innerHTML = '<div class="ai-loading"><div class="ai-ring" style="width:28px;height:28px;border:2px solid var(--s4);border-top:2px solid var(--lime);border-radius:50%;animation:orbSpin 1s linear infinite;margin:0 auto 10px;"></div>Recalibrando ciclo y archivando...</div>';
+  const apiKey = localStorage.getItem('jeipyfit_groq_key'); if (!apiKey) return;
   
-  const apiKey = localStorage.getItem('jeipyfit_groq_key');
-  if (!apiKey) { showToast('API Key requerida', 'error'); return; }
-
-  const modal = document.getElementById('weeklyReviewModal');
-  if (modal) modal.classList.remove('on');
+  const prompt = `Ajusta macros. Cal actuales: ${A.plan.res.cal}kcal. Fatiga:${reviewAnswers.fatiga}, Adh:${reviewAnswers.adherencia}, Ajuste:${reviewAnswers.ajuste}. Devuelve JSON minificado {"res":{"cal":0,"pro":0,"car":0,"gra":0,"obj":"Ajuste."}}`;
   
-  go(4); animLS();
-
-  const compactPlan = {
-    res: { cal: A.plan.res.cal, pro: A.plan.res.pro, car: A.plan.res.car, gra: A.plan.res.gra, obj: A.plan.res.obj },
-    nut: A.plan.nut,
-    ej: A.plan.ej
-  };
-
-  const prompt = `Preparador élite. Modifica el plan JSON actual basándote estrictamente en este feedback semanal: "${feedback}". 
-Devuelve EXCLUSIVAMENTE el objeto JSON modificado con la misma estructura, minificado y sin texto adicional explicativo.
-Estructura esperada: {"res":{"cal":0,"pro":0,"car":0,"gra":0,"obj":"..."},"nut":[...],"ej":[...]}
-Plan actual: ${JSON.stringify(compactPlan)}`;
-
   try {
-    const raw = await callGroq(apiKey, prompt, 3500);
+    const raw = await callGroq(apiKey, prompt, 600); 
     const parsed = JSON.parse(raw);
     
-    A.plan = { ...A.plan, ...parsed };
-    A.weekLog = {};
-    
-    addHist({
-      type: 'cam',
-      title: 'Plan ajustado para la nueva semana',
-      body: `Ajustes aplicados según feedback: "${feedback}"`,
-      detail: { cal: A.plan.res.cal+'kcal', pro: A.plan.res.pro+'g' }
+    if (!A.pastWeeks) A.pastWeeks = [];
+    const doneCount = Object.values(A.weekLog).filter(v => v === 'done').length;
+    A.pastWeeks.push({
+      id: Date.now(),
+      date: today(),
+      adherence: `${doneCount} de ${A.days.length} días`,
+      feedback: reviewAnswers,
+      aiNotes: parsed.res.obj
     });
 
-    saveState();
-    renderPlan();
-    go(5); MT('plan');
-    showToast('¡Plan actualizado para la nueva semana! 🚀', 'success');
-  } catch (err) {
-    console.error(err);
-    showToast('Error al ajustar el plan: ' + err.message, 'error');
-    go(5); MT('plan');
-  }
+    A.plan.res = { ...A.plan.res, ...parsed.res }; 
+    A.weekLog = {}; 
+    saveState(); renderPlan(); renderProg(); 
+    document.getElementById('weeklyReviewModal').classList.remove('on'); 
+    showToast('Plan recalibrado y semana archivada 🚀', 'success');
+  } catch(e) { document.getElementById('weeklyReviewModal').classList.remove('on'); }
 }
+function closeWeeklyReview() { document.getElementById('weeklyReviewModal').classList.remove('on'); }
 
 // ── PESO ──
 function LW() {
@@ -820,18 +928,46 @@ function addNota() {
   showToast('Nota guardada ✓', 'success');
 }
 
-// ── FOTOS ──
+// ── COMPRESIÓN DE FOTOS CANVAS (EVITA LÍMITE 1MB FIREBASE) ──
 function triggerPhoto() { document.getElementById('photoInput')?.click(); }
 function handlePhoto(e) {
-  const file = e.target.files?.[0]; if (!file) return;
+  const file = e.target.files?.[0]; if (!file) return; 
   const reader = new FileReader();
   reader.onload = ev => {
-    const entry = { id: Date.now(), date: today(), ts: Date.now(), src: ev.target.result };
-    A.photos.push(entry);
-    saveState(); renderPhotos();
-    showToast('Foto guardada ✓', 'success');
+    const img = new Image();
+    img.src = ev.target.result;
+    img.onload = () => {
+      const MAX_WIDTH = 600;
+      const MAX_HEIGHT = 800;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+      } else {
+        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+
+      if (compressedDataUrl.length > 150000) {
+        showToast('La imagen es demasiado compleja, intenta de nuevo.', 'error');
+        return;
+      }
+
+      A.photos.push({ id: Date.now(), date: today(), ts: Date.now(), src: compressedDataUrl });
+      saveState(); 
+      renderPhotos(); 
+      showToast('Evolución guardada ✓', 'success');
+    };
   };
-  reader.readAsDataURL(file);
+  reader.readAsDataURL(file); 
   e.target.value = '';
 }
 let _viewingPhoto = null;
@@ -942,7 +1078,7 @@ function OS(type, day, idx, cur) {
   A.editing = { type, day, idx, cur };
   document.getElementById('swapTit').textContent = type==='meal'?'COMIDA':'EJERCICIO';
   document.getElementById('swapSub').textContent = `Alternativas para: "${cur}"`;
-  document.getElementById('swapBody').innerHTML = '<div class="ai-loading"><div class="ai-ring"></div>Generando alternativas...</div>';
+  document.getElementById('swapBody').innerHTML = '<div class="ai-loading"><div class="ai-ring" style="width:28px;height:28px;border:2px solid var(--s4);border-top:2px solid var(--lime);border-radius:50%;animation:orbSpin 1s linear infinite;margin:0 auto 10px;"></div>Generando alternativas...</div>';
   document.getElementById('swapModal').classList.add('on');
   fetchAlts(type, day, cur);
 }
@@ -1137,6 +1273,7 @@ function clearAll() {
   if (!confirm('¿Borrar TODOS los datos? Esta acción es irreversible.')) return;
   localStorage.removeItem('jeipyfit_v2');
   localStorage.removeItem('jeipyfit_state');
+  if(A.firebaseUser && db) db.collection('users').doc(A.firebaseUser.uid).delete();
   location.reload();
 }
 
@@ -1159,6 +1296,15 @@ function showToast(msg, type='') {
   t.className = 'toast show' + (type?' '+type:'');
   clearTimeout(t._to);
   t._to = setTimeout(() => t.className='toast', 2800);
+}
+
+// ── REGISTRO DE SERVICE WORKER PARA PWA OFFLINE REAL ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(r => {
+      console.log('PWA ServiceWorker orquestado en background.');
+    }).catch(e => console.warn('PWA bypass local.', e));
+  });
 }
 
 document.addEventListener('DOMContentLoaded', loadState);
